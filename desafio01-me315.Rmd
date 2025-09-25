@@ -1,0 +1,64 @@
+---
+title: "desafio 04"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+```{r, eval=FALSE, include=FALSE}
+install.packages("knitr")
+install.packages("readr")
+install.packages("reticulate")
+```
+
+```{r, include=FALSE}
+library(knitr)
+library(readr)
+library(reticulate)
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r}
+## virtualenv_create("temp.env")
+   use_virtualenv("temp.env")
+## py_install("pandas", envname = "temp.env")
+```
+
+```{r}
+   t0 <- Sys.time()
+   flights <- read.csv(unz('./flights.csv.zip', 'flights.csv'))
+   t1 <- Sys.time()
+   t1 - t0
+```
+
+Função de leitura: `read_csv` do pacote `readr`
+
+```{r}
+   t0 <- Sys.time()
+   flights <- read_csv(unz('./flights.csv.zip', 'flights.csv'))
+   t1 <- Sys.time()
+   t1 - t0
+```
+
+```{python}
+import pandas as pd
+import time
+from zipfile import ZipFile
+
+t0 = time.time()
+with ZipFile("./flights.csv.zip", "r") as zip_file:
+    with zip_file.open("flights.csv") as file:
+        flights = pd.read_csv(file, header = 0, sep = ",", low_memory = True)
+t1 = time.time()
+t1 - t0
+```
+
+```{r}
+virtualenv_remove("temp.env")
+```
+
