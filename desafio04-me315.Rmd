@@ -1,0 +1,356 @@
+---
+title: "aula04"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    includes:
+      in_header: columns.tex
+    extra_dependencies:
+      babel: [brazil]
+      fvextra: null
+      xcolor: null
+      fancyvrb: null
+      stackengine: null
+    toc: TRUE
+    toc_depth: 4
+header-includes: \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}\definecolor{mygray}{gray}{0.95}
+---
+
+
+```{r, eval=FALSE, include=FALSE}
+install.packages("knitr")
+install.packages("tidyverse")
+install.packages("vroom")
+install.packages("kableExtra")
+```
+
+```{r, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(vroom)
+library(kableExtra)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+\hfill\newline
+## § Cat
+
+>
+
+```{r}
+   cat(1)
+```
+
+\hfill\newline
+## § Natureza
+
+> 
+
+> Atividade de BD para 09/09/25 -- Laboratório Especial.
+
+\hfill\pagebreak
+## § Conjunto de Dados (CD): `flights.csv.zip`
+
+>
+
+```{r, results='asis'}
+## Amostra do CD os 2 primeiros registros
+   a = read_csv("flights.csv.zip", n_max = 2)
+   lista_partes <- split.default(a, cut(1:ncol(a), breaks = seq(0, ncol(a), by = 1)))
+```
+
+```{r, results='asis'}
+## Trata Tabela 1
+   u = (lista_partes %>% kable())[1]
+   v = substring(u, 14, nchar(u))
+   ss2 = "\\caption{Os dois primeiros registros do CD.}"; ss1 = "\\begin{table}"
+   paste0(ss1,ss2,v) %>% cat()
+```
+
+\hfill\pagebreak
+# Laboratório Especial
+
+> Benilton Carvalho & Carlos Trucios
+
+\hfill\newline
+## § Parte 1:
+
+Crie uma função que:
+
+  a. Receba um valor de `TAIL_NUMBER` (por exemplo, `N431WN`);
+  
+  b. Produza uma tabela (tidy) com todos os trajetos realizados pela aeronave (ordenadas por data e hora,
+contendo todas as colunas do arquivo `flights.csv.zip`);
+
+  c. Produza um mapa que apresente todo o trajeto voado pela aeronave ao longo de todo o ano; o trajeto
+deve ser apresentado de maneira linear no tempo (i.e., segue a sequência do tempo, como no exemplo
+hipotético dado acima);
+
+  d. O mapa deve ser decorado com estatísticas do seu interesse (por exemplo, velocidade média do vôo
+como espessura da linha que conecta os aeroportos envolvidos no trajeto);
+
+>
+
+Função:
+
+\verb|analisa_aeronave| $=f\circ g:\textrm{String}\to\mathbb{M}$
+
+$f:\textrm{String}\to F(\textrm{String}\times\mathbb{M};\mathbb{M})$
+
+$g:F(\textrm{String}\times\mathbb{M};\mathbb{M})\to\mathbb{M}$
+
+---
+
+```{r}
+   analisa_aeronave = function(tail_number){
+     function(arquivo, pos){
+       arquivo %>%
+         filter(TAIL_NUMBER == tail_number) %>%
+         filter(!is.na(ORIGIN_AIRPORT), !is.na(DESTINATION_AIRPORT)) %>%
+         group_by(DAY, MONTH, TAIL_NUMBER)
+     }
+   }
+```
+
+---
+
+\hfill\newline
+## § Execução
+
+>
+
+Leitura em blocos:
+
+---
+
+```{r, cache=TRUE}
+   mycols = cols_only(DAY='i', MONTH='i', YEAR='i', AIRLINE='c', TAIL_NUMBER='c', ORIGIN_AIRPORT='c', DESTINATION_AIRPORT='c')
+   t0 = Sys.time()
+   in2 = read_csv_chunked("flights.csv.zip",
+                          callback = DataFrameCallback$new(analisa_aeronave(tail_number = "N651DL")),
+                          chunk_size = 1e5,
+                          col_types = mycols)
+   t1 = Sys.time()
+```
+
+\begin{center}
+   $\Delta t =$ `r paste0(t1-t0)` $s$
+\end{center}
+
+```{r, results='asis'}
+   in2 %>% head(10) %>% kable(format = "latex") %>% kable_styling(latex_options = c("hold_position","scale_down"))
+```
+
+---
+
+>
+
+```{r, results='asis'}
+   airports = read_csv("airports.csv")
+   airports %>% head(10) %>% kable(format = "latex") %>% kable_styling(latex_options = c("hold_position","scale_down"))
+```
+
+```{r}
+   airports$COUNTRY %>% unique()
+```
+
+```{r, eval=FALSE}
+install.packages("farver")
+install.packages("ggplot2")
+install.packages("maps")
+install.packages("mapdata")
+```
+
+```{r}
+library(farver)
+library(ggplot2)
+library(maps)
+library(mapdata)
+```
+
+```{r}
+   g1 = ggplot() + 
+     borders("world", colour = "gray50", fill = "gray90") +
+     theme_minimal()
+   
+   g1
+```
+
+```{r}
+   airports
+   a1 = airports[c("IATA_CODE","LATITUDE","LONGITUDE")]
+   local_airports = c(in2$ORIGIN_AIRPORT, in2$DESTINATION_AIRPORT) %>% unique()
+```
+
+```{r}
+seus_dados = a1
+seus_dados = seus_dados %>% filter(IATA_CODE %in% local_airports)
+
+lat_range <- range(seus_dados$LATITUDE) + c(-5, 5)
+long_range <- range(seus_dados$LONGITUDE) + c(-5, 5)
+
+ggplot() +
+  borders("world", colour = "gray50", fill = "gray90") +
+  geom_point(data = seus_dados, aes(x = LONGITUDE, y = LATITUDE), 
+             color = "red", size = 3) +
+  geom_text(data = seus_dados, aes(x = LONGITUDE, y = LATITUDE, label = IATA_CODE),
+            hjust = -0.1, vjust = 0.5, size = 3) +
+  coord_fixed(xlim = long_range, ylim = lat_range, ratio = 1.3) +
+  theme_void()
+```
+
+```{r}
+seus_dados = a1
+seus_dados = seus_dados %>% filter(IATA_CODE %in% local_airports)
+
+# Esta solução funciona sempre!
+plotar_mapa_com_pontos <- function(dados, margem = 0.1) {
+  # Calcular limites
+  lat_range <- range(dados$LATITUDE, na.rm = TRUE)
+  long_range <- range(dados$LONGITUDE, na.rm = TRUE)
+  
+  # Adicionar margem
+  lat_margem <- diff(lat_range) * margem
+  long_margem <- diff(long_range) * margem
+  
+  ggplot() +
+    borders("world", colour = "gray50", fill = "gray90") +
+    geom_point(data = dados, aes(x = LONGITUDE, y = LATITUDE), 
+               color = "red", size = 1, alpha = 0.6) +
+    coord_sf(xlim = c(long_range[1] - long_margem, long_range[2] + long_margem),
+             ylim = c(lat_range[1] - lat_margem, lat_range[2] + lat_margem)) +
+    theme_void()
+}
+
+# Usar a função
+plotar_mapa_com_pontos(seus_dados, margem = 0.15)
+```
+
+```{r, eval=FALSE}
+install.packages("ggrepel")
+```
+
+```{r}
+library(ggrepel)
+```
+
+```{r}
+seus_dados = a1
+seus_dados = seus_dados %>% filter(IATA_CODE %in% local_airports)
+
+plotar_pontos_ggrepel <- function(dados, margem = 0.15) {
+  # Calcular limites
+  lat_range <- range(dados$LATITUDE, na.rm = TRUE)
+  long_range <- range(dados$LONGITUDE, na.rm = TRUE)
+  
+  # Adicionar margem
+  lat_margem <- diff(lat_range) * margem
+  long_margem <- diff(long_range) * margem
+  
+  ggplot() +
+    borders("world", colour = "gray50", fill = "gray90") +
+    
+    geom_point(data = dados, aes(x = LONGITUDE, y = LATITUDE, color = IATA_CODE), 
+               size = 2, alpha = 0.8) +
+    
+    # ggrepel evita sobreposição de labels
+    geom_text_repel(data = dados, aes(x = LONGITUDE, y = LATITUDE, label = IATA_CODE),
+                    size = 2.5, color = "black",
+                    box.padding = 0.3, max.overlaps = 20) +
+    
+    coord_sf(xlim = c(long_range[1] - long_margem, long_range[2] + long_margem),
+             ylim = c(lat_range[1] - lat_margem, lat_range[2] + lat_margem)) +
+    theme_void() +
+    theme(legend.position = "none") # Remove a legenda de cores
+}
+
+plotar_pontos_ggrepel(seus_dados)
+```
+
+```{r}
+seus_dados = a1
+seus_dados = seus_dados %>% filter(IATA_CODE %in% local_airports)
+
+search = function(string){
+  function(x){
+    seus_dados[[which(seus_dados$IATA_CODE == x),string]]
+  }
+}
+```
+
+```{r}
+# Exemplo de estrutura
+voos <- data.frame(
+  decolagem_lat = unlist(lapply(in2$ORIGIN_AIRPORT,search("LATITUDE"))),
+  decolagem_long = unlist(lapply(in2$ORIGIN_AIRPORT,search("LONGITUDE"))),
+  aterrissagem_lat = unlist(lapply(in2$DESTINATION_AIRPORT,search("LATITUDE"))),
+  aterrissagem_long = unlist(lapply(in2$DESTINATION_AIRPORT,search("LONGITUDE"))),
+  tail_number = in2$TAIL_NUMBER
+)
+```
+
+```{r}
+plotar_rotas_curvas <- function(dados_voos, margem = 0.2) {
+  todas_lats <- c(dados_voos$decolagem_lat, dados_voos$aterrissagem_lat)
+  todas_longs <- c(dados_voos$decolagem_long, dados_voos$aterrissagem_long)
+  
+  lat_range <- range(todas_lats, na.rm = TRUE)
+  long_range <- range(todas_longs, na.rm = TRUE)
+  
+  lat_margem <- diff(lat_range) * margem
+  long_margem <- diff(long_range) * margem
+  
+  ggplot() +
+    borders("world", colour = "gray50", fill = "gray90") +
+    
+    # Curvas para rotas
+    geom_curve(data = dados_voos,
+               aes(x = decolagem_long, y = decolagem_lat,
+                   xend = aterrissagem_long, yend = aterrissagem_lat,
+                   color = tail_number),
+               curvature = 0.2, # Curvatura da linha
+               arrow = arrow(length = unit(0.15, "cm")),
+               linewidth = 0.8, alpha = 0.1) +
+    
+    # Pontos
+    geom_point(data = dados_voos,
+               aes(x = decolagem_long, y = decolagem_lat),
+               color = "darkred", size = 2) +
+    
+    coord_sf(xlim = c(long_range[1] - long_margem, long_range[2] + long_margem),
+             ylim = c(lat_range[1] - lat_margem, lat_range[2] + lat_margem)) +
+    theme_void() +
+    ggtitle("Trajetória da Nave: N651DL") + 
+    theme(legend.position = "none")
+}
+
+plotar_rotas_curvas(voos)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
