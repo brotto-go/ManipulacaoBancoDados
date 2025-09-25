@@ -1,0 +1,614 @@
+---
+title: "aula04"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    includes:
+      in_header: columns.tex
+    extra_dependencies:
+      babel: [brazil]
+      fvextra: null
+      xcolor: null
+      fancyvrb: null
+    toc: TRUE
+    toc_depth: 4
+header-includes: \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}\definecolor{mygray}{gray}{0.95}\definecolor{myblue}{RGB}{69,117,180}\definecolor{myred}{RGB}{215,48,39}
+---
+
+
+```{r install, include=FALSE}
+## install.packages("knitr")
+## install.packages("tidyr")
+## install.packages("dplyr")
+## install.packages("devtools")
+## install.packages("kableExtra")
+```
+
+```{r library, include=FALSE}
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(devtools)
+library(kableExtra)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r source, eval=FALSE, include=FALSE}
+devtools::create("temp.package") ## setwd("./temp.package") # Comando inválido em code-chunk
+devtools::document()
+devtools::install("./temp.package")
+library(temp.package)
+```
+
+```{r experimente!, eval=FALSE, include=FALSE}
+?my_kbl
+?my_kbl_sty
+```
+
+\hfill\newline
+## § Natureza
+
+>
+
+> O presente documento configura uma proposta de solução aos problemas:
+
+- Laboratório n.° 2;
+- Desafio n.° 2.
+
+> Apresentados durante a aula de ME315-2S2025 na Quinta-feira de, 14, de Agosto. 
+
+\hfill\newline
+## § Resumo 
+
+>
+
+> São apresentadas a seguir exemplos de soluções aos problemas citados anteriormente. O primeiro é um problema elaborado por professores que já ministraram essa disciplina em semestres passados; o segundo é um desafio e consiste em replicar a atividade em linguagem Python. 
+
+>
+
+> A ferramenta RStudio junto de pacotes desenvolvidos pela comunidade R permitem que essas atividades sejam integradas num só documento Rmd. Este pdf é compilado a partir de um código fonte Rmd e propõe-se a integrar a elaboração das duas atividades.
+
+\hfill\newline
+## § Introdução
+
+>
+
+> Inicialmente a proposta da atividade elaborada pelos Professores Benilton e Guilherme visa desenvolver um conjunto de habilidades muito importantes a todo estatísitico -- manipular conjuntos de dados (incluindo os volumosos) -- mas visto que este documento consiste de propostas de soluções a duas atividades, o escopo das habilidades a serem desenvolvidas se tornou maior.
+
+>
+
+> Dado essa fato, detalhes sobre as soluções não são constantemente apresentados; para mais detalhes e dicas, recomenda-se a leitura do código-fonte responsável pela compilação deste .Rmd. 
+
+>
+
+> Mais ainda, algo muito importante sobre a compilação desse mesmo código fonte: Este documento possui várias dependências e a instalação dos pacotes nescessários está inclusa no documento, na forma dos blocos de código desativados. Quando, e se, desejar-se compilar este documento, certifique-se de que o pacotes inclusos nos blocos desativados estão instalados. (Sujestão: Substitua a propriedade FALSE, por TRUE, nas opções de inicialização dos mesmos.)
+
+\hfill\pagebreak
+### §§ Conjunto de dados (CD): `flights.csv.zip`
+
+>
+
+```{r, eval=FALSE}
+#! CHUNK DESATIVADA 
+## Instala dependências
+   install.packages("readr")
+   devtools::install("./temp.package")
+```
+
+```{r}
+## Inicializa dependências
+   library(readr)
+   library(temp.package)
+```
+
+```{r, results='asis'}
+## Amostra do CD os 2 primeiros registros
+   a = read_csv("flights.csv.zip", n_max = 2)
+   lista_partes <- split.default(a, cut(1:ncol(a), breaks = seq(0, ncol(a), by = 1)))
+```
+
+```{r, results='asis'}
+## Trata Tabela 1
+   u = (lista_partes %>% my_kbl())[1]
+   v = substring(u, 14, nchar(u))
+   ss2 = "\\caption{Os dois primeiros registros do CD.}"; ss1 = "\\begin{table}"
+   paste0(ss1,ss2,v) %>% cat()
+```
+
+\hfill\pagebreak
+# Laboratório 2: Processamento de Bases de Dados em Lote
+
+> Benilton Carvalho & Guilherme Ludwig
+
+\hfill\newline
+## § Instruções
+
+\SaveVerb{ARRIVAL_DELAY}+ARRIVAL_DELAY+
+
+1. Quais são as estatísticas suficientes para a determinação do percentual de vôos atrasados na chegada (\colorbox{mygray}{\UseVerb{ARRIVAL_DELAY}} > 10)?
+
+>
+
+---
+
+\begin{center}              
+   Nº total de vôos e Nº de vôos atrasadados.
+\end{center}
+
+---
+
+>
+
+\SaveVerb{getStats}+getStats+
+
+\SaveVerb{flights.csv.zip}+flights.csv.zip+
+
+\SaveVerb{dplyr}+dplyr+
+
+\SaveVerb{tibble}+tibble+
+
+\SaveVerb{input}+input+
+
+\SaveVerb{pos}+pos+
+
+2. Crie uma função chamada \colorbox{mygray}{\UseVerb{getStats}} que, para um conjunto de qualquer tamanho de dados provenientes de \colorbox{mygray}{\UseVerb{flights.csv.zip}}, execute as seguintes tarefas (usando apenas verbos do \colorbox{mygray}{\UseVerb{dplyr}}):
+
+a) Filtre o conjunto de dados de forma que contenha apenas observações das seguintes Cias. Aéreas: AA, DL, UA e US;
+
+b) Remova observações que tenham valores faltantes em campos de interesse;
+
+c) Agrupe o conjunto de dados resultante de acordo com: dia, mês e cia. aérea;
+
+d) Para cada grupo em b), determine as estatísticas suficientes apontadas no item 1. e os retorne como um objeto da classe \colorbox{mygray}{\UseVerb{tibble}};
+
+e) A função deve receber apenas dois argumentos: 
+
+   i. \colorbox{mygray}{\UseVerb{input}}: o conjunto de dados (referente ao lote em questão);
+  
+   ii. \colorbox{mygray}{\UseVerb{pos}}: argumento de posicionamento de ponteiro dentro da base de dados. Apesar de existir na função, este argumento não será empregado internamente. É importante observar que, sem a definição deste argumento, será impossível fazer a leitura por partes.
+
+>
+
+---
+
+```{r}
+   getStats = function(input, pos){
+     input %>%
+       filter(AIRLINE == "AA" | AIRLINE == "DL" | AIRLINE == "UA" | AIRLINE == "US", !is.na(ARRIVAL_DELAY)) %>%
+       group_by(DAY, MONTH, AIRLINE) %>%
+       mutate(late = (ARRIVAL_DELAY > 10))
+   }
+```
+
+---
+
+>
+
+\SaveVerb{readr::read_***_chunked}+readr::read_***_chunked+
+
+\SaveVerb{callback}+callback+
+
+\SaveVerb{col_types}+col_types+
+
+3. Utilize alguma função \colorbox{mygray}{\UseVerb{readr::read_***_chunked}} para importar o arquivo \colorbox{mygray}{\UseVerb{flights.csv.zip}}.
+
+a) Configure o tamanho do lote (chunk) para 100 mil registros;
+
+b) Configure a função de \colorbox{mygray}{\UseVerb{callback}} para instanciar DataFrames aplicando a função \colorbox{mygray}{\UseVerb{getStats}} criada acima;
+
+c) Configure o argumento \colorbox{mygray}{\UseVerb{col_types}} de forma que ele leia, diretamente do arquivo, apenas as colunas de interesse (veja nota de aula para identificar como realizar esta tarefa);
+
+>
+
+---
+
+```{r, cache=TRUE}
+   mycols = cols_only(DAY='i', MONTH='i', YEAR='i', AIRLINE='c', ARRIVAL_DELAY='i')
+   t0 = Sys.time()
+   in2 = read_csv_chunked("flights.csv.zip",
+                          callback = DataFrameCallback$new(getStats),
+                          chunk_size = 1e5,
+                          col_types = mycols)
+   t1 = Sys.time()
+```
+
+\begin{center}
+   $\Delta t =$ `r paste0(t1-t0)` $s$
+\end{center}
+
+---
+
+>
+
+\SaveVerb{computeStats}+computeStats+
+
+\SaveVerb{Cia}+Cia+
+
+\SaveVerb{Data}+Data+
+
+\SaveVerb{as.Date}+as.Date+
+
+\SaveVerb{Perc}+Perc+
+
+4. Crie uma função chamada \colorbox{mygray}{\UseVerb{computeStats}} que:
+
+a) Combine as estatísticas suficientes para compor a métrica final de interesse (percentual de atraso por dia/mês/cia aérea);
+
+b) Retorne as informações em um \colorbox{mygray}{\UseVerb{tibble}} contendo apenas as seguintes colunas: 
+
+   i. \colorbox{mygray}{\UseVerb{Cia}}: sigla da companhia aérea;
+   
+   ii. \colorbox{mygray}{\UseVerb{Data}}: data, no formato AAAA-MM-DD (dica: utilize o comando \colorbox{mygray}{\UseVerb{as.Date}});
+   
+   iii. \colorbox{mygray}{\UseVerb{Perc}}: percentual de atraso para aquela cia. aérea e data, apresentado como um número real no intervalo $[0,1]$.
+
+>
+
+---
+
+```{r, include=FALSE}
+   computeStats_ = function(input){
+     input %>% 
+       mutate(DATE=as.Date(paste(YEAR,MONTH,DAY,sep="-"))) %>%
+       group_by(AIRLINE) %>%
+       reframe(Perc = sum( 1*(late))/n())
+   }
+```
+
+```{r}
+   computeStats = function(input){
+     input %>% 
+       mutate(DATE=as.Date(paste(YEAR,MONTH,DAY,sep="-"))) %>%
+       group_by(AIRLINE,DATE) %>%
+       reframe(Perc = sum( 1*(late))/n())
+   }
+```
+
+---
+  
+>
+
+\SaveVerb{ggcal}+ggcal+
+
+\SaveVerb{ggplot2}+ggplot2+
+
+\SaveVerb{scale_fill_gradient.}+scale_fill_gradient.+
+
+\SaveVerb{4575b4}+#4575b4+
+
+\SaveVerb{d73027}+#d73027+
+
+\SaveVerb{pal}+pal+
+
+\SaveVerb{baseCalendario}+baseCalendario+
+
+\SaveVerb{stats}+stats+
+
+\SaveVerb{cia}+cia+
+
+\SaveVerb{ggcal(x,y)}+ggcal(x,y)+
+
+\SaveVerb{x}+x+
+
+\SaveVerb{y}+y+
+
+\SaveVerb{cAA}+cAA+
+
+\SaveVerb{cDL}+cDL+
+
+\SaveVerb{cUA}+cUA+
+
+\SaveVerb{cUS}+cUS+
+
+\SaveVerb{ggtitle}+ggtitle+
+
+\SaveVerb{verb01}.cXX + pal + ggtitle('Titulo').
+
+5. Produza um mapa de calor em formato de calendário para cada Cia. Aérea.
+
+a) Instale e carregue os pacotes \colorbox{mygray}{\UseVerb{ggcal}} e \colorbox{mygray}{\UseVerb{ggplot2}}.
+
+b) Defina uma paleta de cores em modo gradiente. Utilize o comando \colorbox{mygray}{\UseVerb{scale_fill_gradient.}} A cor inicial da paleta deve ser \colorbox{myblue}{\textcolor{mygray}{\UseVerb{4575b4}}} e a cor final, \colorbox{myred}{\textcolor{mygray}{\UseVerb{d73027}}}. A paleta deve ser armazenada no objeto \colorbox{mygray}{\UseVerb{pal}}.
+
+c) Crie uma função chamada \colorbox{mygray}{\UseVerb{baseCalendario}} que recebe 2 argumentos a seguir: \colorbox{mygray}{\UseVerb{stats}} (\colorbox{mygray}{\UseVerb{tibble}} com resultados calculados na questão 4) e \colorbox{mygray}{\UseVerb{cia}} (sigla da Cia. Aérea de interesse). A função deverá: 
+
+   i. Criar um subconjunto de \colorbox{mygray}{\UseVerb{stats}} de forma a conter informações de atraso e data apenas da Cia. Aérea dada por cia.
+   
+   ii. Para o subconjunto acima, montar a base do calendário, utilizando \colorbox{mygray}{\UseVerb{ggcal(x,y)}}. Nesta notação, \colorbox{mygray}{\UseVerb{x}} representa as datas de interesse e \colorbox{mygray}{\UseVerb{y}}, os percentuais de atraso para as datas descritas em \colorbox{mygray}{\UseVerb{x}}.
+   
+   iii. Retornar para o usuário a base do calendário criada acima.
+   
+d) Executar a função \colorbox{mygray}{\UseVerb{baseCalendario}} para cada uma das Cias. Aéreas e armazenar os resultados, respectivamente, nas variáveis: \colorbox{mygray}{\UseVerb{cAA}}, \colorbox{mygray}{\UseVerb{cDL}}, \colorbox{mygray}{\UseVerb{cUA}} e \colorbox{mygray}{\UseVerb{cUS}}.
+
+e) Para cada uma das Cias. Aéreas, apresente o mapa de calor respectivo utilizando a combinação de camadas do \colorbox{mygray}{\UseVerb{ggplot2}}. Lembre-se de adicionar um título utilizando o comando \colorbox{mygray}{\UseVerb{ggtitle}}. Por exemplo, \colorbox{mygray}{\UseVerb{verb01}}.
+
+>
+
+---
+
+```{r, cache=TRUE, include=FALSE}
+   in3 = computeStats_(in2)
+   in4 = computeStats(in2)
+```
+
+```{r, eval=FALSE}
+#! CHUNK DESATIVADA
+## Instala dependências
+   install.packages("vroom")
+   install.packages("ggplot2")
+   devtools::install_github("jayjacobs/ggcal")
+   install.packages("patchwork")
+```
+
+```{r}
+## Inicializa dependências
+   library(vroom)
+   library(ggplot2)
+   library(ggcal)
+   library(patchwork)
+```
+
+```{r}
+## Configura calendário
+   pal = scale_fill_gradient(low="#4575b4", high="#d73027")
+   baseCalendario = function(stats, cia){
+     input = stats %>% filter(AIRLINE==cia)
+     ggcal(input$DATE, input$Perc)
+   }
+
+   g1 = baseCalendario(in4, "AA") + pal + ggtitle("AA")
+   g2 = baseCalendario(in4, "DL") + pal + ggtitle("DL")
+   g3 = baseCalendario(in4, "UA") + pal + ggtitle("UA")
+   g4 = baseCalendario(in4, "US") + pal + ggtitle("US")
+```
+
+```{r, fig.align='center', fig.height=4}
+## Imprime calendário
+   g1 + g2
+```
+
+```{r, fig.align='center', fig.height=4, fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéereas AA, DL, UA e US, respectivamente")}
+   g3 + g4
+```
+
+---
+
+>
+
+\begin{center}
+   Resultados Extras:
+\end{center}
+
+---
+
+:::::: {.cols data-latex=""}
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 2: Média de vôos atrasados por Cia estudada.
+\end{center}
+
+\centering
+```{r, results='asis'}
+in3 %>% my_kbl()
+```
+:::
+
+::: {.col data-latex="{0.09\textwidth}"}
+\ 
+<!-- an empty Div (with a white space), serving as
+a column separator -->
+:::
+
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 3: Média de vôos atrasados por Cia estudada e por dia.
+\end{center}
+
+\centering
+```{r, results='asis'}
+in4 %>% 
+  head(10) %>% 
+  my_kbl() %>% 
+  footnote(general_title="1-10 de 1276 linhas", general="")
+```
+:::
+::::::
+
+---
+
+>
+
+\hfill\pagebreak
+## § Python
+
+>
+
+```{r, eval=FALSE}
+## Instala dependências
+   install.packages("reticulate")
+```
+
+```{r}
+## Inicializa dependências
+   library(reticulate)
+```
+
+```{r}
+## Configura Python
+   venv_python = "temp.venv"
+
+   virtualenv_create(venv_python)
+   use_virtualenv(venv_python)
+   py_install("pandas", envname = venv_python)
+   py_install("calplot", envname = venv_python)
+```
+
+```{python}
+def getStats(cd,lista_chunck):
+    cias = ['AA','DL','UA','US']
+    cd_filtro = cd[['DAY','MONTH','YEAR','AIRLINE','ARRIVAL_DELAY']]
+    cd_filtro = cd_filtro[cd_filtro['AIRLINE'].isin(cias)]
+    cd_filtro = cd_filtro.dropna(subset=['ARRIVAL_DELAY'])
+    cd_filtro['late'] = cd_filtro['ARRIVAL_DELAY'] > 10
+    lista_chunck.append(cd_filtro)
+```
+
+```{python}
+def computeStats(cd):
+    cd_filtro = cd
+    cd_filtro['date'] = pd.to_datetime(cd_filtro[['YEAR','MONTH','DAY']],format="%Y-%m-%d")
+    cd_filtro = cd_filtro[['date','AIRLINE','ARRIVAL_DELAY','late']]
+    x = cd_filtro.groupby(['AIRLINE','date']).agg(
+      late=('late','sum'),
+      N=('AIRLINE','count')
+    ).reset_index()
+    x['Perc'] = x['late']/x['N']
+    x = x[['AIRLINE','date','Perc']]
+    return x
+```
+
+```{r}
+## A única grande diferença está na forma de lidar com a lógica de pertencimento ao subconjunto de Cias. "['AA','DL','UA','US']", que é mais simples do que em R, onde o operador "|" (ou) é usado repetidas vezes.
+```
+
+```{python}
+# Bibliotecas
+import matplotlib.pyplot as plt
+import calplot
+import pandas as pd
+
+# Atribui o endereço de máquina do CD a uma variável
+arquivo_csv = 'flights.csv.zip'
+
+# Define o tamanho de cada "chunck" a ser lido
+tamanho_chunck = 100000
+
+# Lista para armazenar os subconjuntos processados
+subconjuntos_processados = []
+
+# Cria um objeto leitor que vai iterar sobre o CD
+leitor_csv = pd.read_csv(arquivo_csv, chunksize=tamanho_chunck)
+
+# Itera sobre cada chunck do CD
+for chunck in leitor_csv:
+    getStats(chunck,subconjuntos_processados)
+
+# Concatena todos os subconjuntos em um único DataFrame
+df_final = pd.concat(subconjuntos_processados, ignore_index=True)
+
+# Computa estatísticas
+stats = computeStats(df_final)
+```
+
+```{python include=FALSE}
+cAA = stats[stats['AIRLINE'] == 'AA']
+cAA = cAA.set_index('date')
+cal1 = calplot.calplot(data=cAA['Perc'],suptitle=f'AA',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_AA_atrasos.pdf')
+plt.close()
+
+cDL = stats[stats['AIRLINE'] == 'DL']
+cDL = cDL.set_index('date')
+cal2 = calplot.calplot(data=cDL['Perc'],suptitle=f'DL',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_DL_atrasos.pdf')
+plt.close()
+
+cUA = stats[stats['AIRLINE'] == 'UA']
+cUA = cUA.set_index('date')
+cal3 = calplot.calplot(data=cUA['Perc'],suptitle=f'UA',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_UA_atrasos.pdf')
+plt.close()
+
+cUS = stats[stats['AIRLINE'] == 'US']
+cUS = cUS.set_index('date')
+cal4 = calplot.calplot(data=cUS['Perc'],suptitle=f'US',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_US_atrasos.pdf')
+plt.close()
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("grafico_AA_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("grafico_DL_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("grafico_UA_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéreas AA, DL, UA e US, respectivamente. (Obtida através do Python)"), echo=FALSE}
+knitr::include_graphics("grafico_US_atrasos.pdf")
+```
+
+>
+
+>
+
+\hfill\newline
+## § Resultados e comparações
+
+>
+
+:::::: {.cols data-latex=""}
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 4: Média de vôos atrasados por Cia estudada. (Obtida através do Python)
+\end{center}
+
+\centering
+```{r, results='asis'}
+in5 = py$stats
+in5 %>% 
+  head(10) %>% 
+  my_kbl() %>% 
+  footnote(general_title="1-10 de 1276 linhas", general="")
+```
+:::
+
+::: {.col data-latex="{0.09\textwidth}"}
+\ 
+<!-- an empty Div (with a white space), serving as
+a column separator -->
+:::
+
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 3: Média de vôos atrasados por Cia estudada e por dia.
+\end{center}
+
+\centering
+```{r, results='asis'}
+in4 %>% 
+  head(10) %>% 
+  my_kbl() %>% 
+  footnote(general_title="1-10 de 1276 linhas", general="")
+```
+:::
+::::::
+
+```{r}
+   virtualenv_remove(venv_python)
+```
+
+
+
+
+
+
+
+
+
+
+
+

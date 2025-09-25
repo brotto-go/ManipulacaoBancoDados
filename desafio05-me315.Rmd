@@ -1,0 +1,87 @@
+---
+title: "Desafio 05"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+---
+
+
+```{r, eval=FALSE, include=FALSE}
+install.packages("RSQLite")
+```
+
+```{r, include=FALSE}
+library(knitr)
+library(readxl)
+library(tidyverse)
+library(kableExtra)
+library(RSQLite)
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, eval = FALSE)
+```
+
+## Connection
+
+```{r}
+   pathfile = "./disco.db"
+   db = dbConnect(SQLite(), pathfile)
+   db
+```
+
+```{r}
+   dbListTables(db)
+   dbListFields(db, "albums")
+```
+
+## Exemplos
+
+### 1.
+
+```{r}
+   Q1 = paste("SELECT * FROM albums")
+   albun_db = dbGetQuery(db, Q1)
+   head(albun_db) %>% kable(format = "html")
+```
+
+### 2. (Corrigido)
+
+```{r}
+   Q2 = paste("SELECT trackid, name, composer, unitprice FROM tracks ORDER BY unitprice")
+   res = dbGetQuery(db, Q2)
+   head(res) %>% kable(format = "html")
+```
+
+### 3. (Corrigida: enunciado em (a) e (b) sC#o idC*nticos)
+
+```{r}
+   Q3 = paste("SELECT DISTINCT city FROM customers ORDER BY city")
+   ex3a = dbGetQuery(db, Q3)
+   head(ex3a) %>% kable(format = "html")
+```
+
+### 4. (Corrigido: Limite redundante removido)
+
+```{r}
+   Q4 = paste('SELECT trackid, name, albumid FROM tracks',
+   'WHERE albumid IN',
+   '(SELECT albumid FROM albums WHERE artistid==12)')
+   ex4 = dbGetQuery(db, Q4)
+   head(ex4) %>% kable(format = "html")
+```
+
+
+
+
+
+
+
+
+
+
+
+

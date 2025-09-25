@@ -1,0 +1,171 @@
+---
+title: "Desafio 06"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+---
+
+
+```{r, include=FALSE}
+library(knitr)
+library(dplyr)
+library(RSQLite)
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Funções
+
+`clearst`
+
+```{r}
+clearst = function(texto) {
+  texto = gsub("\n", " ", texto)
+  texto = gsub("\\s+", " ", texto)
+  texto = trimws(texto)
+  return(texto)
+}
+```
+
+## Atividade
+
+Instruções
+
+```{r}
+file_path = "./disco.db"
+```
+
+```{r, results='asis'}
+conn = dbConnect(SQLite(), file_path)
+tabelas = dbListTables(conn)
+```
+
+```{r, results='asis'}
+kable(data.frame(tabelas = tabelas))
+```
+
+```{r, results='asis'}
+customers <- dbGetQuery(conn, paste0("PRAGMA table_info(", "customers", ")"))$name
+albums <- dbGetQuery(conn, paste0("PRAGMA table_info(", "albums", ")"))$name
+invoices <- dbGetQuery(conn, paste0("PRAGMA table_info(", "invoices", ")"))$name
+invoice_items <- dbGetQuery(conn, paste0("PRAGMA table_info(", "invoice_items", ")"))$name
+```
+
+```{r, results='asis'}
+kable(data.frame(customers = customers))
+kable(data.frame(albums = albums))
+kable(data.frame(invoices = invoices))
+kable(data.frame(invoice_items = invoice_items))
+```
+
+```{r, results='asis'}
+s1 = "SELECT COUNT(*) AS n FROM customers"
+kable(dbGetQuery(conn, s1))
+```
+
+```{r, results='asis'}
+s2 = "SELECT COUNT(DISTINCT Country) AS n_country FROM customers"
+kable(dbGetQuery(conn, s2))
+```
+
+```{r, results='asis'}
+s3 = "SELECT Country, COUNT(*) AS n_clientes FROM customers GROUP BY Country ORDER BY n_clientes DESC"
+kable(dbGetQuery(conn, s3))
+```
+
+```{r, results='asis'}
+s4 = paste(s3,"LIMIT 5")
+kable(dbGetQuery(conn, s4))
+```
+
+```{r, results='asis'}
+s5 = "SELECT DISTINCT Country FROM customers WHERE Country GLOB '??????'"
+kable(dbGetQuery(conn, s5))
+```
+
+```{r, results='asis'}
+s6 = paste0("
+SELECT 
+    c.CustomerId as id_cliente, 
+    c.Country as pais_cliente, 
+    t.Name as musica, 
+    ii.Quantity as quantidade 
+FROM customers c 
+JOIN invoices i ON c.CustomerId = i.CustomerId 
+JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId 
+JOIN tracks t ON ii.TrackId = t.TrackId 
+WHERE c.Country = 'Brazil'")
+
+kable(head(dbGetQuery(conn, s6)))
+```
+
+## Desafio
+
+Querys extras
+
+```{r, results='asis'}
+## Qual o álbum mais tocado por pais?
+
+s7 = paste0("
+SELECT
+    pais,
+    album,
+    artista,
+    MAX(total_compras) as compras
+FROM (
+    SELECT 
+        c.Country as pais,
+        alb.Title as album,
+        ar.Name as artista,
+    COUNT(ii.InvoiceLineId) as total_compras
+    FROM customers c
+    JOIN invoices i ON c.CustomerId = i.CustomerId
+    JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+    JOIN tracks t ON ii.TrackId = t.TrackId
+    JOIN albums alb ON t.AlbumId = alb.AlbumId
+    JOIN artists ar ON alb.ArtistId = ar.ArtistId
+    GROUP BY c.Country, alb.AlbumId
+)
+GROUP BY pais
+ORDER BY compras DESC")
+
+kable(dbGetQuery(conn, clearst(s7)))
+```
+
+```{r, results='asis'}
+## Qual o artista mais tocado por pais?
+
+s8 = paste0("
+SELECT 
+    pais,
+    artista,
+    MAX(total_compras) as compras
+FROM (
+    SELECT 
+        c.Country as pais,
+        ar.Name as artista,
+        COUNT(ii.InvoiceLineId) as total_compras
+    FROM customers c
+    JOIN invoices i ON c.CustomerId = i.CustomerId
+    JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+    JOIN tracks t ON ii.TrackId = t.TrackId
+    JOIN albums alb ON t.AlbumId = alb.AlbumId
+    JOIN artists ar ON alb.ArtistId = ar.ArtistId
+    GROUP BY c.Country, ar.ArtistId
+)
+GROUP BY pais
+ORDER BY compras DESC, pais")
+
+kable(dbGetQuery(conn, s8))
+```
+
+
+
+
+
+

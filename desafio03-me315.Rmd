@@ -1,0 +1,66 @@
+---
+title: "Desafio 03"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+---
+
+
+```{r, include=FALSE}
+pacotes = c("knitr","arrow","jsonlite")
+
+for (p in pacotes) {
+  if (!require(p, character.only = TRUE)){
+    install.packages(p)
+    library(p, character.only = TRUE)
+  }
+}
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Parquet
+
+O Apache Parquet é um formato de armazenamento de dados orientado a colunas, gratuito e de código aberto, no ecossistema Apache Hadoop. É semelhante ao RCFile e ao ORC, os outros formatos de arquivo de armazenamento em colunas do Hadoop, e é compatível com a maioria das estruturas de processamento de dados do Hadoop. Ele oferece esquemas eficientes de compactação e codificação de dados com desempenho aprimorado para lidar com dados complexos em massa. -- Wikipedia
+
+Função de leitura é `read_parquet` do pacote `arrow`
+
+```{r}
+#lendo o arquivo parquet
+iris_parquet <- read_parquet("./iris.parquet")
+```
+
+```{r, results='asis'}
+kable(head(iris_parquet))
+```
+
+## JSON
+
+Em computação, **JSON** (pronúncia ['dʒejzən], J-son em inglês), um acrônimo de JavaScript Object Notation, é um formato compacto, de padrão aberto independente, de troca de dados simples e rápida (parsing) entre sistemas, especificado por Douglas Crockford em 2000, que utiliza texto legível a humanos, no formato atributo-valor (natureza auto-descritiva). Isto é, um modelo de transmissão de informações no formato texto, muito usado em *web services* que usa transferência de estado representacional (REST) e aplicações AJAX, substituindo o uso do XML. -- Wikipedia
+
+Função de leitura é `fromJSON` do pacote `jsonlite`
+
+```{r}
+iris_json <- fromJSON("./iris.json")
+```
+
+```{r, results='asis'}
+#lendo o arquivo JSON
+kable(head(iris_json))
+```
+
+## Refs
+
+JSON. In: WIKIPÉDIA, a enciclopédia livre. Flórida: Wikimedia Foundation, 2025. Disponível em: <https://pt.wikipedia.org/w/index.php?title=JSON&oldid=70826464>. Acesso em: 8 set. 2025. 
+
+Apache Parquet. In: WIKIPÉDIA, a enciclopédia livre. Flórida: Wikimedia Foundation, 2025. Disponível em: <https://en.wikipedia.org/w/index.php?title=Apache_Parquet&oldid=1305948399>. Acesso em: 8 set. 2025. 
+
+
+
+
+
