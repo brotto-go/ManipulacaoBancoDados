@@ -1,0 +1,274 @@
+---
+title: "aula17"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.time()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+---
+
+
+```{r, include=FALSE}
+# Lista de pacotes necessários
+pacotes_necessarios <- c("knitr","tidyr","devtools","kableExtra","reticulate")
+
+# Função para verificar e instalar pacotes
+verificar_instalar_pacotes <- function(pacotes) {
+  for(pacote in pacotes) {
+    if(!require(pacote, character.only = TRUE)) {
+      install.packages(pacote)
+      library(pacote, character.only = TRUE)
+    }
+  }
+}
+```
+
+```{r, include=FALSE}
+verificar_instalar_pacotes(pacotes_necessarios)
+if(!require(vroom)) install.packages("weatherData", repos="http://cran.us.r-project.org")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+\hfill\newline
+# § Natureza
+
+> Relatório sobre a aula n.º 17
+
+\hfill\newline
+# § Slide -- Introdução ao Polars
+
+\hfill\newline
+## §§ Python
+
+>
+
+```{r}
+## Inicializa dependências
+   library(reticulate)
+## reticulate::install_python(version = '3.12')
+```
+
+```{r}
+## Configura Python
+   venv_python = "temp.venv"
+
+## Inicia sessão python
+   virtualenv_create(venv_python)
+   py_install("pandas", envname = venv_python)
+   py_install("polars", envname = venv_python)
+   py_install("fastexcel", envname = venv_python)
+   py_install("pyarrow", envname = venv_python)
+   use_virtualenv(venv_python)
+```
+
+```{python}
+import pandas as pd
+import polars as pl
+
+aeroportos = pl.read_csv("airports.csv",
+                         columns = ["IATA_CODE", "CITY", "STATE"])
+aeroportos.head(2)
+```
+
+```{python}
+wdi = pl.read_excel("WDIEXCEL.xlsx", sheet_name = "Country",
+                    columns = ["Short Name", "Region"])
+wdi.head(2)
+```
+
+```{python}
+df = pl.DataFrame({
+    "grupo": ["A", "A", "B", "B", "C"],
+    "valor1": [10, 15, 10, None, 25],
+    "valor2": [5, None, 20, 30, None]
+})
+df
+```
+
+```{python}
+df["valor1"]
+df["valor1"].mean()
+```
+
+```{python}
+df["valor1"].drop_nulls()
+df["valor1"].drop_nulls().mean()
+```
+
+```{python}
+df.select([
+  pl.col("valor1").mean().alias("media_v1"),
+  pl.col("valor2").mean()
+])
+```
+
+```{python}
+df.group_by("grupo").agg([
+  pl.col("valor1").mean().alias("media_valor1"),
+  pl.col("valor2").min().alias("min_valor2")
+]).sort("grupo")
+```
+
+```{python}
+voos = pl.read_csv("flights.csv",
+                   columns = ["AIRLINE", "ARRIVAL_DELAY", "DESTINATION_AIRPORT"],
+                   schema_overrides = {"AIRLINE": pl.Utf8,
+                             "ARRIVAL_DELAY": pl.Int32,
+                             "DESTINATION_AIRPORT": pl.Utf8})
+voos.shape
+```
+
+```{python}
+voos.head(3)
+```
+
+```{python}
+resultado = (
+  voos.drop_nulls(["AIRLINE", "DESTINATION_AIRPORT", "ARRIVAL_DELAY"])
+  .filter(
+    pl.col("AIRLINE").is_in(["AA", "DL"]) &
+    pl.col("DESTINATION_AIRPORT").is_in(["SEA", "MIA", "BWI"])
+    )
+    .group_by(["AIRLINE", "DESTINATION_AIRPORT"])
+    .agg([
+      (pl.col("ARRIVAL_DELAY") > 30).mean().alias("atraso_medio")
+      ])
+)
+```
+
+```{python}
+resultado.sort("atraso_medio")
+```
+
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
+
+\hfill\newline
+# § Slide -- Dados relacionais com Polars
+
+>
+
+```{python}
+clientes = pl.DataFrame({
+    "cliente_id": [1, 2, 3, 4],
+    "nome": ["Ana", "Bruno", "Clara", "Daniel"]
+})
+
+print(clientes)
+```
+
+```{python}
+pedidos = pl.DataFrame({
+    "pedido_id": [101, 102, 103, 104, 105],
+    "cliente_id": [1, 2, 3, 1, 5],
+    "valor": [100.50, 250.75, 75.00, 130.00, 79.00]
+})
+
+print(pedidos)
+```
+
+```{python}
+res_ij = clientes.join(pedidos, on="cliente_id", how="inner")
+print(res_ij)
+```
+
+```{python}
+res_lj = clientes.join(pedidos, on="cliente_id", how="left")
+print(res_lj)
+```
+
+```{python}
+res_rj = clientes.join(pedidos, on="cliente_id", how="right")
+print(res_rj)
+```
+
+```{python}
+res_oj = clientes.join(pedidos, on="cliente_id", how="outer")
+print(res_oj)
+```
+
+```{python}
+res_cj = clientes.join(pedidos, how="cross")
+print(res_cj)
+```
+
+# P1: Qual é o valor médio das compras realizadas para cada cliente identificado?
+
+```{python}
+print(clientes)
+print(pedidos)
+```
+
+```{python}
+res = res_ij.group_by(["nome","cliente_id"]).agg(pl.col("valor").mean())
+print(res)
+```
+
+# P2: Informe os nomes e a quantidade de compras com valor mínimo de $100.00 realizadas por cada cliente.
+
+```{python}
+res = (res_oj.with_columns(pl.col("valor") > 100)
+       .group_by("nome")
+       .agg(pl.col("valor").sum()))
+print(res)
+```
+
+```{python}
+vendas = pl.DataFrame({
+    "id_venda": [1, 2, 3],
+    "id_cl": [1, 2, 1],
+    "id_prod": [101, 102, 103],
+    "qtde": [2, 1, 1]
+})
+
+detalhes_pedidos = pl.DataFrame({
+    "id_ped": [201, 202, 203],
+    "cl_id": [1, 2, 1],
+    "id_prod": [101, 102, 104],
+    "valor": [50.00, 75.00, 100.00]
+})
+```
+
+```{python}
+print(vendas)
+
+print(detalhes_pedidos)
+```
+
+```{python}
+final = vendas.join(detalhes_pedidos,
+                    left_on = ["id_cl", "id_prod"],
+                    right_on = ["cl_id", "id_prod"],
+                    how = "inner")
+print(final)
+```
+
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
+
+```{r, eval=FALSE}
+## Encerra sessão
+   virtualenv_remove(venv_python)
+```
+
+
+
+
+
+
+
+
