@@ -1,0 +1,255 @@
+---
+title: "aula17"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.time()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+    extra_dependencies:
+      babel: [brazil]
+      emoji: null
+      fvextra: null
+      stackengine: null
+    toc: TRUE
+    toc_depth: 4
+header_includes: \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+<!-- Vetor de pacotes necessários -->
+
+```{r, include=FALSE}
+pacotes_necessarios <- c("knitr",
+                         "tidyr",
+                         "devtools",
+                         "kableExtra",
+                         "reticulate")
+```
+
+<!-- Funções -->
+
+```{r, include=FALSE}
+verificar_instalar_pacotes <- function(pacotes) {
+  for(pacote in pacotes) {
+    if(!require(pacote, character.only = TRUE)) {
+      install.packages(pacote)
+      library(pacote, character.only = TRUE)
+    }
+  }
+}
+```
+
+<!-- Setup -->
+
+```{r, include=FALSE}
+## Pacotes 
+verificar_instalar_pacotes(pacotes_necessarios)
+```
+
+```{r, include=FALSE}
+## Pacotes com dependência CRAN
+if(!require(vroom)) install.packages("weatherData", repos="http://cran.us.r-project.org")
+```
+
+```{r setup, include=FALSE}
+## Desativa alertas e avisos
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+<!-- Rmd -->
+
+\hfill\pagebreak
+# § Funny
+
+> Exemplos de matemática em \LaTeX
+
+$$Q(x)=x_1^2+3x_1x_2+1x_2^2=(\,x_1\quad x_2\,)(\,\stackanchor{$2$}{$1.5$}\quad\stackanchor{$1.5$}{$1$}\,)(\,\stackanchor{$x_1$}{$x_2$}\,)=x^\prime Ax$$
+
+\hfill\newline
+# § Python
+
+>
+
+```{r}
+## Inicia sessão python
+   venv_python = "temp.venv"
+   if(!virtualenv_exists(venv_python)){ virtualenv_create(venv_python) }
+   
+   py_install("pandas", envname = venv_python)
+   py_install("polars", envname = venv_python)
+   py_install("pyarrow", envname = venv_python)
+   py_install("matplotlib", envname = venv_python)
+   use_virtualenv(venv_python)
+```
+
+```{python}
+import pandas as pd
+import polars as pl
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+# Definir todos os nomes das colunas
+novos_nomes = ["age","workclass","fnlwgt","education","education-num","marital-status","occupation","relationship","race","sex","capital-gain","capital-loss","hours-per-week","native-country","income"]
+
+# Ler e renomear de uma vez
+df = pl.read_csv(
+    "renda_adulta.csv.gz",
+    has_header=False,
+    new_columns=novos_nomes
+)
+
+print("Dados carregados e colunas renomeadas!")
+```
+
+```{python}
+# Tipos de dados de cada coluna
+print("\nTipos detalhados por coluna:")
+for coluna, tipo in df.schema.items():
+    print(f"Coluna '{coluna}': {tipo}")
+```
+
+```{python}
+# Dimensões
+print("Dimensões do DataFrame:")
+print(f"Shape: {df.shape}")
+print(f"Número de linhas: {df.height}")
+print(f"Número de colunas: {df.width}")
+print(f"Total de elementos: {df.height * df.width}")
+```
+
+```{python}
+# Contagem por categoria de renda
+contagem_renda = df.group_by('income').agg(
+    pl.len().alias('quantidade')
+).sort('quantidade', descending=True)
+
+print("1. Distribuição por faixa salarial:")
+print(contagem_renda)
+
+# Formato alternativo mais explicativo
+acima_50k = df.filter(pl.col('income') == '>50K').height
+abaixo_50k = df.filter(pl.col('income') == '<=50K').height
+
+print(f"\nPessoas com renda >50K: {acima_50k}")
+print(f"Pessoas com renda <=50K: {abaixo_50k}")
+print(f"Total: {acima_50k + abaixo_50k}")
+```
+
+```{python}
+# Criar o objeto renda_lango no formato longo
+renda_longo = df.unpivot(
+    index=['age', 'workclass', 'fnlwgt', 'education', 'education-num', 
+             'marital-status', 'occupation', 'relationship', 'race', 'sex',
+             'hours-per-week', 'native-country', 'income'],
+    on=['capital-gain', 'capital-loss'],
+    variable_name='tipo',
+    value_name='Valor'
+)
+
+print("\n2. Dataset em formato longo:")
+print(renda_longo.head())
+print(f"Dimensões do renda_longo: {renda_longo.shape}")
+```
+
+```{python}
+# Médias de horas por semana por classe salarial
+medias_horas = df.group_by('income').agg(
+    pl.mean('hours-per-week').alias('media_horas_semana')
+).sort('media_horas_semana', descending=True)
+
+print("\n3. Médias de horas trabalhadas por classe salarial:")
+print(medias_horas)
+```
+
+```{python}
+# Contagem de pessoas por ocupação
+pessoas_por_profissao = df.group_by('occupation').agg(
+    pl.len().alias('numero_pessoas')
+).sort('numero_pessoas', descending=True)
+
+print("\n4. Número de pessoas por profissão:")
+print(pessoas_por_profissao)
+
+# Top 10 profissões
+print("\nTop 10 profissões com mais pessoas:")
+print(pessoas_por_profissao.head(10))
+```
+
+```{python}
+# Preparar dados para o gráfico
+dados_grafico = df.group_by('income').agg(
+    pl.mean('hours-per-week').alias('media_horas')
+).sort('media_horas')
+
+print("\n5. Dados para o gráfico de barras:")
+print(dados_grafico)
+
+# Se quiser visualizar diretamente, podemos usar matplotlib
+try:
+    import matplotlib.pyplot as plt
+    
+    # Converter para pandas apenas para plotagem
+    dados_plot = dados_grafico.to_pandas()
+    
+    plt.figure(figsize=(10, 6))
+    plt.bar(dados_plot['income'], dados_plot['media_horas'], color=['skyblue', 'lightcoral'])
+    plt.title('Média de Horas Trabalhadas por Semana por Classe Salarial')
+    plt.xlabel('Classe Salarial')
+    plt.ylabel('Média de Horas por Semana')
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Adicionar valores nas barras
+    for i, v in enumerate(dados_plot['media_horas']):
+        plt.text(i, v + 0.1, f'{v:.1f}', ha='center', va='bottom')
+    
+    plt.tight_layout()
+    plt.show()
+    
+except ImportError:
+    print("Matplotlib não instalado. Instale com: pip install matplotlib")
+```
+
+```{python}
+# Análise de discriminação salarial por gênero
+discriminacao_genero = df.group_by(['sex', 'income']).agg(
+    pl.len().alias('quantidade'),
+    pl.mean('hours-per-week').alias('media_horas_trabalhadas'),
+    pl.mean('age').alias('media_idade'),
+    pl.mean('education-num').alias('media_educacao')
+).sort(['sex', 'income'])
+
+print("\nDESAFIO: Análise de discriminação por gênero:")
+print(discriminacao_genero)
+
+# Proporções por gênero
+proporcoes_genero = df.group_by('sex').agg(
+    (pl.col('income') == '>50K').mean().alias('proporcao_acima_50k'),
+    pl.len().alias('total')
+)
+
+print("\nProporção de pessoas com renda >50K por gênero:")
+print(proporcoes_genero)
+
+# Análise mais detalhada: renda por gênero e profissão
+analise_detalhada = df.filter(pl.col('occupation').is_not_null()).group_by(['sex', 'occupation']).agg(
+    (pl.col('income') == '>50K').mean().alias('proporcao_alta_renda'),
+    pl.len().alias('amostra'),
+    pl.mean('hours-per-week').alias('media_horas')
+).filter(pl.col('amostra') > 50)  # Filtrar profissões com amostra significativa
+
+print("\nAnálise detalhada por gênero e profissão (amostra > 50):")
+print(analise_detalhada.sort('proporcao_alta_renda', descending=True).head(10))
+```
+
+```{r}
+## Encerra sessão
+   virtualenv_remove(venv_python)
+```
+
+
+
+
+
+
+
