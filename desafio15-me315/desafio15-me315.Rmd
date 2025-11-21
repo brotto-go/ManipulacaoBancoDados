@@ -1,0 +1,243 @@
+---
+title: "Desafio 15"
+subtitle: "ME315-2S2025"
+author: "**brotto**"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: lualatex
+    extra_dependencies:
+      babel: [brazil]
+      unicode-math: null
+      fvextra: null
+      xcolor: dvipsnames
+    toc: TRUE
+    toc_depth: 4
+header-includes: 
+ - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+<!-- Vetor de pacotes necessários -->
+
+```{r, include=FALSE}
+pacotes_necessarios <- c("knitr",
+                         "dplyr",
+                         "vroom",
+                         "JuliaCall")
+```
+
+<!-- Funções -->
+
+```{r, include=FALSE}
+verificar_instalar_pacotes <- function(pacotes) {
+  for(pacote in pacotes) {
+    if(!require(pacote, character.only = TRUE)) {
+      install.packages(pacote)
+      library(pacote, character.only = TRUE)
+    }
+  }
+}
+```
+
+```{r, include=FALSE}
+my_kbl <- function(x, format = "latex", booktabs = TRUE, linesep = "", ...) {
+  # Verifica se o pacote kableExtra está instalado
+  if (!requireNamespace("kableExtra", quietly = TRUE)) {
+    stop("O pacote kableExtra é necessário para esta função. Por favor, instale-o com install.packages('kableExtra')")
+  }
+  
+  # Chama a função kable com os parâmetros padrão
+  kableExtra::kbl(x, format = format, booktabs = booktabs, linesep = linesep, ...)
+}
+```
+
+```{r, include=FALSE}
+my_kbl_foot <- function(x, header = NULL, caption = NULL, format = "latex", booktabs = TRUE, linesep = "", position = "center", latex_options = c("hold_position"), ...) {
+  # Verifica se o pacote kableExtra está instalado
+  if (!requireNamespace("kableExtra", quietly = TRUE)) {
+    stop("O pacote kableExtra é necessário para esta função. Por favor, instale-o com install.packages('kableExtra')")
+  }
+  
+  if (is.null(header)) {
+    header = nrow(x)
+  }
+  
+  # Chama a função kable com os parâmetros padrão
+  table0 = kableExtra::kbl(head(x,header), caption = caption, format = format, booktabs = booktabs, linesep = linesep, ...)
+  
+  # Chama a função kable_styling com os parâmetros padrão
+  # table0 = kableExtra::kable_styling(table0, position = position, latex_options = latex_options, ...)
+  
+  # Chama a função footnote com infos sobre x
+  kableExtra::footnote(table0, general = "", general_title = paste0("1-",header," de ",nrow(x)," linhas | ",ncol(x)," colunas"))
+}
+```
+
+<!-- Setup -->
+
+```{r, include=FALSE}
+verificar_instalar_pacotes(pacotes_necessarios)
+```
+
+```{r setup, include=FALSE}
+## Desativa alertas e avisos
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+<!-- Rmd -->
+
+\hfill\pagebreak
+## § Natureza
+
+>
+
+Desafio 15
+
+\hfill\newline
+## § Resumo 
+
+>
+
+Veremos a execução de um processo em paralelo no julia, bem como comparar com sua versão serial.
+
+\hfill\newline
+## § Introdução
+
+>
+
+Loops em paralelo por vezes ajudam a calcular operações de forma mais veloz. A seguir, estão resultados de uma análise de performance entre computação serial e paralela. O problema é a estimação de $\pi$ através do método de monte carlo --- um processo iterativo (utiliza loops).
+
+\hfill\newline
+# Julia - loops em paralelo
+
+>
+
+```{r}
+   julia_setup(JULIA_HOME = NULL)
+```
+
+```{julia}
+# Pkg
+import Pkg
+```
+
+```{julia}
+# status
+Pkg.status()
+```
+
+```{julia}
+# baixa
+using Pkg
+Pkg.add("Distributed")
+Pkg.add("Statistics")
+Pkg.add("BenchmarkTools")
+
+# carrega
+using Distributed, Statistics, BenchmarkTools
+```
+
+```{julia}
+# serial
+function monte_carlo_serial(n)
+    dentro = 0
+    for i in 1:n
+        x, y = rand(), rand()
+        if x^2 + y^2 <= 1.0
+            dentro += 1
+        end
+    end
+    return 4.0 * dentro / n
+end
+```
+
+```{julia}
+# @distributed
+function monte_carlo_distributed(n)
+    dentro = @distributed (+) for i in 1:n
+        x, y = rand(), rand()
+        Int(x^2 + y^2 <= 1.0)
+    end
+    return 4.0 * dentro / n
+end
+```
+
+```{julia}
+# testes
+function teste_distributed()
+    n = 10_000_000
+    
+    tempo_serial = @elapsed pi_serial = monte_carlo_serial(n)
+    tempo_parallel = @elapsed pi_parallel = monte_carlo_distributed(n)
+    
+    speedup = tempo_serial / tempo_parallel
+
+    erro_serial = abs(pi_serial - π)
+    erro_parallel = abs(pi_parallel - π)
+
+    diferenca = abs(erro_serial - erro_parallel)
+    
+    return pi_serial, pi_parallel, tempo_serial, tempo_parallel, speedup, diferenca, erro_serial
+end
+```
+
+```{julia}
+nprocs() # n de processos
+```
+
+```{r}
+JuliaCall:::.julia$cmd("(nprocs() == 1) ? addprocs(3) : FALSE")
+```
+
+```{julia}
+nprocs() # n de processos
+```
+
+```{julia}
+# pi_serial, pi_parallel, tempo_serial, tempo_parallel, speedup, diferenca, erro_serial
+resultado = teste_distributed() # testa
+```
+
+>
+
+Ganho em peformance:
+
+\begin{center}
+   `r julia_eval("resultado[5]")`x \quad (o ``ganho" na verdade é uma perda, já que $\symtt{speedup}\leq1$x)
+\end{center}
+
+>
+
+\hrule
+
+>
+
+```{r}
+## O resultado gerado pela compilação do knitr é mais lento, mas o tempo de compilação de fato é mais veloz usando o processamento paralelo.
+```
+
+>
+
+![Saída indicando melhora de aprox. 2.04x no tempo de execução.](saida-r-paralelo.png){ width=100% }
+
+
+Notas:
+
+```
+## O @distributed com (+) faz automaticamente:
+## 1. Divide o loop 1:n entre workers
+## 2. Cada worker calcula sua soma parcial
+## 3. Combina todas as somas parciais com +
+   dentro = @distributed (+) for i in 1:n
+       # Retorna 1 ou 0 para cada ponto
+       Int(rand()^2 + rand()^2 <= 1.0)
+   end
+```
+
+
+
+
+
+
+
+
