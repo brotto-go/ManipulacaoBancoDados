@@ -5,6 +5,7 @@ author:
   - "**brotto**"
   - "Rafael Gomes Carneiro - RA185462"
   - "Bruce Trevisan - RA277200"
+  - "Guilherme Duarte Alves Basso - RA240805"
 date: "`r Sys.Date()`"
 output:
   pdf_document:
@@ -1037,6 +1038,7 @@ a column separator -->
 >
 
 \hrule
+
 
 
 
