@@ -164,573 +164,14 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
 \hfill\pagebreak
-# Laboratório 2: Processamento de Bases de Dados em Lote
-
-> Benilton Carvalho & Guilherme Ludwig
-
-\hfill\newline
-## § Instruções
-
-1. Quais são as estatísticas suficientes para a determinação do percentual de vôos atrasados na chegada (\colorbox{codegray}{$\symtt{ARRIVAL\_DELAY}$} > 10)?
-
->
-
-\hrule
-
-\begin{center}              
-   O Número Total de Voos no conjunto de dados $(n)$ e a Contagem de Voos cujo valor na coluna \colorbox{codegray}{$\symtt{ARRIVAL\_DELAY}$} seja maior que 10 $(x)$. Com essas duas estatísticas, o percentual $p$ é calculado por $p = (x / n) * 100$
-\end{center}
-
->
-
-\hrule
-
->
-
-2. Crie uma função chamada \colorbox{codegray}{$\symtt{getStats}$} que, para um conjunto de qualquer tamanho de dados provenientes de \colorbox{codegray}{$\symtt{flights.csv.zip}$}, execute as seguintes tarefas (usando apenas verbos do \colorbox{codegray}{$\symtt{dplyr}$}):
-
-a) Filtre o conjunto de dados de forma que contenha apenas observações das seguintes Cias. Aéreas: AA, DL, UA e US;
-
-b) Remova observações que tenham valores faltantes em campos de interesse;
-
-c) Agrupe o conjunto de dados resultante de acordo com: dia, mês e cia. aérea;
-
-d) Para cada grupo em b), determine as estatísticas suficientes apontadas no item 1. e os retorne como um objeto da classe \colorbox{codegray}{$\symtt{tibble}$};
-
-e) A função deve receber apenas dois argumentos: 
-
-   i. \colorbox{codegray}{$\symtt{input}$}: o conjunto de dados (referente ao lote em questão);
-  
-   ii. \colorbox{codegray}{$\symtt{pos}$}: argumento de posicionamento de ponteiro dentro da base de dados. Apesar de existir na função, este argumento não será empregado internamente. É importante observar que, sem a definição deste argumento, será impossível fazer a leitura por partes.
-
->
+# Julia
 
 \hrule
 
 ```{r}
-   getStats = function(input, pos) {
-     
-     # Filtra os dados nas cias. de interesse e remove linhas sem valores de atraso
-     input %>%
-       filter(
-         AIRLINE %in% c("AA", "DL", "UA", "US"),
-         !is.na(ARRIVAL_DELAY)
-       ) %>%
-       
-       # Agrupa dados por dia, mês e cia. 
-       group_by(DAY, MONTH, AIRLINE) %>%
-       
-       # Cria coluna de tipo booleano, TRUE para atraso significativo (>10 minutos)
-       mutate(late = (ARRIVAL_DELAY > 10))
-   }
-```
-
-\hrule
-
->
-
-3. Utilize alguma função \colorbox{codegray}{$\symtt{readr::read\_***\_chunked}$} para importar o arquivo \colorbox{codegray}{$\symtt{flights.csv.zip}$}.
-
-a) Configure o tamanho do lote (chunk) para 100 mil registros;
-
-b) Configure a função de \colorbox{codegray}{$\symtt{callback}$} para instanciar DataFrames aplicando a função \colorbox{codegray}{$\symtt{getStats}$} criada acima;
-
-c) Configure o argumento \colorbox{codegray}{$\symtt{col\_types}$} de forma que ele leia, diretamente do arquivo, apenas as colunas de interesse (veja nota de aula para identificar como realizar esta tarefa);
-
->
-
-\hrule
-
-```{r, cache=FALSE}
-## Define colunas específicas para leitura eficiente dos dados CSV
-   mycols = cols_only(
-     DAY = 'i',          # Dia do mês (inteiro)
-     MONTH = 'i',        # Mês (inteiro) 
-     YEAR = 'i',         # Ano (inteiro)
-     AIRLINE = 'c',      # Código da Cia. (string)
-     ARRIVAL_DELAY = 'i' # Tempo de atraso em minutos (inteiro)
-   )
-
 ## Captura do tempo inicial para monitoramento de performance
    t0 = Sys.time()
-
-## Processa os dados em lote
-   in2 = read_csv_chunked(
-     file = file0,                               # Nome do arquivo
-     callback = DataFrameCallback$new(getStats), # Função a ser usada no processamento de cada lote.
-     chunk_size = 1e5,                           # Tamanho do lote (100.000 linhas)
-     col_types = mycols                          # Restrição da leitura às colunas pré especificadas.
-   )
-
-## Captura do tempo final
-   t1 <- Sys.time()
-```
-
-\begin{center}
-   $\Delta t^\prime=\symtt{t1-t0}=$ `r d1=difftime(t1,t0,units = "secs"); d1` $s$
-\end{center}
-
->
-
-\hrule
-
->
-
-4. Crie uma função chamada \colorbox{codegray}{$\symtt{computeStats}$} que:
-
-a) Combine as estatísticas suficientes para compor a métrica final de interesse (percentual de atraso por dia/mês/cia aérea);
-
-b) Retorne as informações em um \colorbox{codegray}{$\symtt{tibble}$} contendo apenas as seguintes colunas: 
-
-   i. \colorbox{codegray}{$\symtt{Cia}$}: sigla da companhia aérea;
-   
-   ii. \colorbox{codegray}{$\symtt{Data}$}: data, no formato AAAA-MM-DD (dica: utilize o comando \colorbox{codegray}{$\symtt{as.Date}$});
-   
-   iii. \colorbox{codegray}{$\symtt{Perc}$}: percentual de atraso para aquela cia. aérea e data, apresentado como um número real no intervalo $[0,1]$.
-
->
-
-\hrule
-
-```{r}
-   computeStats <- function(input) {
-     input %>%
-       
-       # Cria uma coluna de data a partir das colunas com dados de ano, mês e dia.
-       mutate(DATE = as.Date(paste(YEAR, MONTH, DAY, sep = "-"))) %>%
-       
-       # Agrupa os dados por cia. e data
-       group_by(AIRLINE, DATE) %>%
-       
-       # Calcula atraso diário percentual para cada cia.
-       reframe(
-         Perc = sum(1 * (late)) / n()  # Converte valores booleanos para inteiros (1 ou 0) e calcula a média da sua soma
-       )
-   }
-```
-
-\hrule
-  
->
-
-5. Produza um mapa de calor em formato de calendário para cada Cia. Aérea.
-
-a) Instale e carregue os pacotes \colorbox{codegray}{$\symtt{ggcal}$} e \colorbox{codegray}{$\symtt{ggplot2}$}.
-
-b) Defina uma paleta de cores em modo gradiente. Utilize o comando \colorbox{codegray}{$\symtt{scale\_fill\_gradient.}$} A cor inicial da paleta deve ser \colorbox{4575b4}{\textcolor{white}{$\symtt{\#4575b4}$}} e a cor final, \colorbox{d73027}{\textcolor{white}{$\symtt{\#d73027}$}}. A paleta deve ser armazenada no objeto \colorbox{codegray}{$\symtt{pal}$}.
-
-c) Crie uma função chamada \colorbox{codegray}{$\symtt{baseCalendario}$} que recebe 2 argumentos a seguir: \colorbox{codegray}{$\symtt{stats}$} (\colorbox{codegray}{$\symtt{tibble}$} com resultados calculados na questão 4) e \colorbox{codegray}{$\symtt{cia}$} (sigla da Cia. Aérea de interesse). A função deverá: 
-
-   i. Criar um subconjunto de \colorbox{codegray}{$\symtt{stats}$} de forma a conter informações de atraso e data apenas da Cia. Aérea dada por cia.
-   
-   ii. Para o subconjunto acima, montar a base do calendário, utilizando \colorbox{codegray}{$\symtt{ggcal(x,y)}$}. Nesta notação, \colorbox{codegray}{$\symtt{x}$} representa as datas de interesse e \colorbox{codegray}{$\symtt{y}$}, os percentuais de atraso para as datas descritas em \colorbox{codegray}{$\symtt{x}$}.
-   
-   iii. Retornar para o usuário a base do calendário criada acima.
-   
-d) Executar a função \colorbox{codegray}{$\symtt{baseCalendario}$} para cada uma das Cias. Aéreas e armazenar os resultados, respectivamente, nas variáveis: \colorbox{codegray}{$\symtt{cAA}$}, \colorbox{codegray}{$\symtt{cDL}$}, \colorbox{codegray}{$\symtt{cUA}$} e \colorbox{codegray}{$\symtt{cUS}$}.
-
-e) Para cada uma das Cias. Aéreas, apresente o mapa de calor respectivo utilizando a combinação de camadas do \colorbox{codegray}{$\symtt{ggplot2}$}. Lembre-se de adicionar um título utilizando o comando \colorbox{codegray}{$\symtt{ggtitle}$}. Por exemplo, \colorbox{codegray}{$\symtt{verb01}$}.
-
->
-
-\hrule
-
-```{r, cache=FALSE}
-## Captura do tempo inicial para monitoramento de performance
-   t0 = Sys.time()
-
-## Aplica funções com computações estatísticas aos dados processados
-   in4 <- computeStats(in2)
-```
-
-```{r, cache=FALSE}
-## Define paleta de cores para visualização dos caledários
-## Grandiente de azul a vermelho para representação da magnitude dos atrasos
-   pal <- scale_fill_gradient(low = "#4575b4",   # Azul (Pouco)
-                              high = "#d73027")  # Vermelho (Muito)
-
-## Base do calendário para visualização das estatísticas de atraso
-   baseCalendario <- function(stats, cia) {
-     
-     # Filtra os dados nas cias. de interesse
-     input <- stats %>% 
-       filter(AIRLINE == cia)
-     
-     # Cria mapa de calor no calendário usando função do pacote ggcal
-     ggcal(input$DATE, input$Perc)
-   }
-
-## Gera os calendários para visualização de cada cia.
-   g1 <- baseCalendario(in4, "AA") + 
-     pal + 
-     ggtitle("American Airlines (AA)")
-   
-   g2 <- baseCalendario(in4, "DL") + 
-     pal + 
-     ggtitle("Delta Air Lines (DL)")
-   
-   g3 <- baseCalendario(in4, "UA") + 
-     pal + 
-     ggtitle("United Airlines (UA)")
-   
-   g4 <- baseCalendario(in4, "US") + 
-     pal + 
-     ggtitle("US Airways (US)")
-```
-
-```{r, fig.align='center', fig.height=4}
-## Imprime calendários
-   g1 + g2
-```
-
-```{r, fig.align='center', fig.height=4, fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéereas AA, DL, UA e US, respectivamente")}
-   g3 + g4
-```
-
-\hfill\pagebreak
-
-```{r}
-   computeMoreStats = function(stats) {
-     stats %>%
-       
-       # Seleciona
-       filter(AIRLINE %in% c("AA", "DL", "UA", "US")) %>%
-       
-       # Agrupa os dados por cia.
-       group_by(AIRLINE) %>%
-       
-       # Calcula o atraso percentual de cada cia.
-       reframe(
-         Média = round(mean(Perc) * 100, 2),
-         Máx = round(max(Perc) * 100, 2)
-       ) %>%
-       arrange(AIRLINE)
-   }
-```
-
-:::::: {.cols data-latex=""}
-::: {.col data-latex="{0.45\textwidth}"}
-
-\begin{center}
-   Tabela 2: Média de vôos atrasados por Cia estudada.
-\end{center}
-
-\centering
-```{r, results='asis'}
-## Tabela kable()
-   computeMoreStats(in4) %>% my_kbl()
-```
-:::
-
-::: {.col data-latex="{0.09\textwidth}"}
-\ 
-<!-- an empty Div (with a white space), serving as
-a column separator -->
-:::
-
-::: {.col data-latex="{0.45\textwidth}"}
-
-\begin{center}
-   Tabela 3: Média de vôos atrasados por Cia estudada e por dia.
-\end{center}
-
-\centering
-```{r, results='asis'}
-## Tabela kable()
-   in4 %>% my_kbl_foot(header = 10)
-```
-:::
-::::::
-
->
-
-```{r}
-## Captura do tempo final
-   t1 = Sys.time()
-```
-
-\begin{center}
-   $\Delta t^{\prime\prime}=$ `r difftime(t1,t0,units = "secs")` $s$
-\end{center}
-
-\begin{center}
-   $\Delta t=\Delta t^\prime+\Delta t^{\prime\prime}=$ `r d1+difftime(t1,t0,units = "secs")` $s$
-\end{center}
-
->
-
-\hrule
-
-\hfill\pagebreak
-# Desafio 2: Python
-
->
-
-\hrule
-
-```{r, include=FALSE}
-## Captura do tempo inicial para monitoramento de performance
-   t0 = Sys.time()
-```
-
-```{r}
-## Inicia sessão python
-   venv_python = "temp.venv"
-   if(!virtualenv_exists(venv_python)){ virtualenv_create(venv_python, packages = c("pip","setuptools","wheel")) }
-
-   py_install("pandas", envname = venv_python)
-   py_install("calplot", envname = venv_python)
-   py_install("pyarrow", envname = venv_python)
-   use_virtualenv(venv_python)
-```
-
-```{python}
-def getStats(flight_chunk, chunk_list):
-  
-    # Seleção das cias.
-    major_airlines = ['AA', 'DL', 'UA', 'US']
-    
-    # Seleciona colunas relevantes no processamento
-    filtered_chunk = flight_chunk[['DAY', 'MONTH', 'YEAR', 'AIRLINE', 'ARRIVAL_DELAY']]
-    
-    # Filtra os dados nas cias.
-    filtered_chunk = filtered_chunk[filtered_chunk['AIRLINE'].isin(major_airlines)]
-    
-    # Remove linhas sem valores de atraso nos vôos
-    filtered_chunk = filtered_chunk.dropna(subset=['ARRIVAL_DELAY'])
-    
-    # Indentifica vôos com atraso significativos (> 10 minutos)
-    filtered_chunk['late'] = filtered_chunk['ARRIVAL_DELAY'] > 10
-    
-    # Anexa lote processado a lista de resultados
-    chunk_list.append(filtered_chunk)
-```
-
-```{python}
-def computeStats(flight_data):
-
-    # Cria coluna com valores de data a partir de colunas individuais com informações de tempo
-    flight_data['date'] = pd.to_datetime(
-        flight_data[['YEAR', 'MONTH', 'DAY']], 
-        format="%Y-%m-%d"
-    )
-    
-    # Seleciona apenas as colunas relevantes para agregação
-    processed_data = flight_data[['date', 'AIRLINE', 'ARRIVAL_DELAY', 'late']]
-    
-    # Agrupa por cia. e data para calcular estatísticas de atraso
-    daily_stats = processed_data.groupby(['AIRLINE', 'date']).agg(
-        delayed_count=('late', 'sum'),      # Count of delayed flights
-        total_flights=('AIRLINE', 'count')  # Total flights in group
-    ).reset_index()
-    
-    # Cálculo do atraso percentual
-    daily_stats['Perc'] = daily_stats['delayed_count'] / daily_stats['total_flights']
-    
-    # Retorna apenas colunas relevantes
-    return daily_stats[['AIRLINE', 'date', 'Perc']]
-```
-
-```{python}
-def computeMoreStats(stats):
-    import pandas as pd
-    
-    airlines = ['AA', 'DL', 'UA', 'US']
-    resultados = []
-    
-    for airline in airlines:
-        airline_data = stats[stats['AIRLINE'] == airline]
-        
-        atraso_medio = round(airline_data['Perc'].mean() * 100, 2)
-        atraso_maximo = round(airline_data['Perc'].max() * 100, 2)
-            
-        resultados.append({
-            'AIRLINE': airline,
-            'atraso_medio': atraso_medio,
-            'atraso_maximo': atraso_maximo,
-        })
-    
-    return pd.DataFrame(resultados)
-```
-
-```{python}
-# Bibliotecas
-import matplotlib.pyplot as plt
-import calplot
-import pandas as pd
-
-## Nome do arquivo com os dados
-arquivo_csv = 'flights.csv.zip'
-
-# Define o tamanho de cada lote a ser lido
-tamanho_chunck = 1e5
-
-# Lista para armazenar os subconjuntos processados
-subconjuntos_processados = []
-
-# Cria um objeto leitor que vai iterar sobre o CD
-leitor_csv = pd.read_csv(arquivo_csv, chunksize=tamanho_chunck)
-
-# Itera sobre cada chunk do CD
-for chunck in leitor_csv:
-    getStats(chunck,subconjuntos_processados)
-
-# Concatena todos os subconjuntos em um único DataFrame
-df_final = pd.concat(subconjuntos_processados, ignore_index=True)
-
-# Computa estatísticas
-stats = computeStats(df_final)
-```
-
-```{python include=FALSE}
-# Gera pdf para cada um dos calendários
-cAA = stats[stats['AIRLINE'] == 'AA']
-cAA = cAA.set_index('date')
-cal1 = calplot.calplot(data=cAA['Perc'],suptitle=f'AA',cmap='YlGn',colorbar=True)
-plt.savefig('grafico_AA_atrasos.pdf')
-plt.close()
-
-cDL = stats[stats['AIRLINE'] == 'DL']
-cDL = cDL.set_index('date')
-cal2 = calplot.calplot(data=cDL['Perc'],suptitle=f'DL',cmap='YlGn',colorbar=True)
-plt.savefig('grafico_DL_atrasos.pdf')
-plt.close()
-
-cUA = stats[stats['AIRLINE'] == 'UA']
-cUA = cUA.set_index('date')
-cal3 = calplot.calplot(data=cUA['Perc'],suptitle=f'UA',cmap='YlGn',colorbar=True)
-plt.savefig('grafico_UA_atrasos.pdf')
-plt.close()
-
-cUS = stats[stats['AIRLINE'] == 'US']
-cUS = cUS.set_index('date')
-cal4 = calplot.calplot(data=cUS['Perc'],suptitle=f'US',cmap='YlGn',colorbar=True)
-plt.savefig('grafico_US_atrasos.pdf')
-plt.close()
-```
-
-```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
-## Imprime os calendários
-   knitr::include_graphics("grafico_AA_atrasos.pdf")
-```
-
-```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
-   knitr::include_graphics("grafico_DL_atrasos.pdf")
-```
-
-```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
-   knitr::include_graphics("grafico_UA_atrasos.pdf")
-```
-
-```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéreas AA, DL, UA e US, respectivamente. (Obtida através do Python)"), echo=FALSE}
-   knitr::include_graphics("grafico_US_atrasos.pdf")
-```
-
-\hfill\pagebreak
-## § Resultados e Comparações (R--Python)
-
->
-
-:::::: {.cols data-latex=""}
-::: {.col data-latex="{0.45\textwidth}"}
-
-\begin{center}
-   Tabela 4: Média de vôos atrasados por Cia estudada e dia (Obtida através do Python)
-\end{center}
-
-\centering
-```{r, results='asis'}
-## Atribui o conteúdo da variável stats no ambiente python para a variável in5 no R
-## Tabela kable()
-   in5 = py$stats
-   in5 %>% my_kbl_foot(header = 10)
-```
-:::
-
-::: {.col data-latex="{0.09\textwidth}"}
-\ 
-<!-- an empty Div (with a white space), serving as
-a column separator -->
-:::
-
-::: {.col data-latex="{0.45\textwidth}"}
-
-\begin{center}
-   Tabela 3: Média de vôos atrasados por Cia estudada e dia.
-\end{center}
-
-\centering
-```{r, results='asis'}
-## Tabela kable()
-   in4 %>% my_kbl_foot(header = 10)
-```
-:::
-::::::
-
-:::::: {.cols data-latex=""}
-::: {.col data-latex="{0.45\textwidth}"}
-
-\begin{center}
-   Tabela 5: Média de vôos atrasados por Cia estudada (Obtida através do Python)
-\end{center}
-
-\centering
-```{python}
-## Estatísticas extras
-MoreStats = computeMoreStats(stats)
-```
-
-```{r, results='asis'}
-## Tabela kable()
-   in6 = py$MoreStats
-   in6 %>% my_kbl()
-```
-:::
-
-::: {.col data-latex="{0.09\textwidth}"}
-\ 
-<!-- an empty Div (with a white space), serving as
-a column separator -->
-:::
-
-::: {.col data-latex="{0.45\textwidth}"}
-<!-- an empty Div (with a white space), serving as
-a column separator -->
-:::
-::::::
-
->
-
-```{r, eval=FALSE}
-## Encerra sessão Python
-   virtualenv_remove(venv_python)
-```
-
-```{r, include=FALSE}
-## Captura do tempo final
-   t1 <- Sys.time()
-```
-
-\begin{center}
-   $\Delta t=$ `r paste0(difftime(t1,t0,units = "secs"))` $s$
-\end{center}
-
->
-
-\hrule
-
-\hfill\pagebreak
-# Trabalho Final: Julia
-
->
-
-```{r, include=FALSE}
-   t0 = Sys.time()
-```
-
-\hrule
-
-```{r}
+## Configurando o ambiente em Julia
    julia_setup(JULIA_HOME = NULL)
    julia_assign("file0",file0)
 ```
@@ -954,8 +395,353 @@ display(g4_julia)
    Figura: US Airways (US) - Julia
 \end{center}
 
+>
+
+```{r}
+## Captura do tempo final
+   t1 = Sys.time()
+```
+
+\begin{center}
+   $\Delta t=$ `r delta1 = difftime(t1,t0,units = "secs"); delta1` $s$
+\end{center}
+
+>
+
+\hrule
+
 \hfill\pagebreak
-## § Resultados e Comparações (R--Julia)
+# R
+
+\hrule
+
+```{r}
+## Captura do tempo inicial para monitoramento de performance
+   t0 = Sys.time()
+```
+
+```{r}
+   getStats = function(input, pos) {
+     
+     # Filtra os dados nas cias. de interesse e remove linhas sem valores de atraso
+     input %>%
+       filter(
+         AIRLINE %in% c("AA", "DL", "UA", "US"),
+         !is.na(ARRIVAL_DELAY)
+       ) %>%
+       
+       # Agrupa dados por dia, mês e cia. 
+       group_by(DAY, MONTH, AIRLINE) %>%
+       
+       # Cria coluna de tipo booleano, TRUE para atraso significativo (>10 minutos)
+       mutate(late = (ARRIVAL_DELAY > 10))
+   }
+```
+
+```{r}
+## Define colunas específicas para leitura eficiente dos dados CSV
+   mycols = cols_only(
+     DAY = 'i',          # Dia do mês (inteiro)
+     MONTH = 'i',        # Mês (inteiro) 
+     YEAR = 'i',         # Ano (inteiro)
+     AIRLINE = 'c',      # Código da Cia. (string)
+     ARRIVAL_DELAY = 'i' # Tempo de atraso em minutos (inteiro)
+   )
+
+## Processa os dados em lote
+   in2 = read_csv_chunked(
+     file = file0,                               # Nome do arquivo
+     callback = DataFrameCallback$new(getStats), # Função a ser usada no processamento de cada lote.
+     chunk_size = 1e5,                           # Tamanho do lote (100.000 linhas)
+     col_types = mycols                          # Restrição da leitura às colunas pré especificadas.
+   )
+```
+
+```{r}
+   computeStats <- function(input) {
+     input %>%
+       
+       # Cria uma coluna de data a partir das colunas com dados de ano, mês e dia.
+       mutate(DATE = as.Date(paste(YEAR, MONTH, DAY, sep = "-"))) %>%
+       
+       # Agrupa os dados por cia. e data
+       group_by(AIRLINE, DATE) %>%
+       
+       # Calcula atraso diário percentual para cada cia.
+       reframe(
+         Perc = sum(1 * (late)) / n()  # Converte valores booleanos para inteiros (1 ou 0) e calcula a média da sua soma
+       )
+   }
+```
+
+```{r}
+   computeMoreStats = function(stats) {
+     stats %>%
+       
+       # Seleciona
+       filter(AIRLINE %in% c("AA", "DL", "UA", "US")) %>%
+       
+       # Agrupa os dados por cia.
+       group_by(AIRLINE) %>%
+       
+       # Calcula o atraso percentual de cada cia.
+       reframe(
+         Média = round(mean(Perc) * 100, 2),
+         Máx = round(max(Perc) * 100, 2)
+       ) %>%
+       arrange(AIRLINE)
+   }
+```
+
+```{r}
+## Aplica funções com computações estatísticas aos dados processados
+   in4 <- computeStats(in2)
+```
+
+```{r}
+## Define paleta de cores para visualização dos caledários
+## Grandiente de azul a vermelho para representação da magnitude dos atrasos
+   pal <- scale_fill_gradient(low = "#4575b4",   # Azul (Pouco)
+                              high = "#d73027")  # Vermelho (Muito)
+
+## Base do calendário para visualização das estatísticas de atraso
+   baseCalendario <- function(stats, cia) {
+     
+     # Filtra os dados nas cias. de interesse
+     input <- stats %>% 
+       filter(AIRLINE == cia)
+     
+     # Cria mapa de calor no calendário usando função do pacote ggcal
+     ggcal(input$DATE, input$Perc)
+   }
+
+## Gera os calendários para visualização de cada cia.
+   g1 <- baseCalendario(in4, "AA") + 
+     pal + 
+     ggtitle("American Airlines (AA)")
+   
+   g2 <- baseCalendario(in4, "DL") + 
+     pal + 
+     ggtitle("Delta Air Lines (DL)")
+   
+   g3 <- baseCalendario(in4, "UA") + 
+     pal + 
+     ggtitle("United Airlines (UA)")
+   
+   g4 <- baseCalendario(in4, "US") + 
+     pal + 
+     ggtitle("US Airways (US)")
+```
+
+```{r, fig.align='center', fig.height=4}
+## Imprime calendários
+   g1 + g2
+```
+
+```{r, fig.align='center', fig.height=4, fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéereas AA, DL, UA e US, respectivamente")}
+   g3 + g4
+```
+
+>
+
+```{r}
+## Captura do tempo final
+   t1 = Sys.time()
+```
+
+\begin{center}
+   $\Delta t=$ `r delta2 = difftime(t1,t0,units = "secs"); delta2` $s$
+\end{center}
+
+>
+
+\hrule
+
+\hfill\pagebreak
+# Python
+
+\hrule
+
+```{r, include=FALSE}
+## Captura do tempo inicial para monitoramento de performance
+   t0 = Sys.time()
+```
+
+```{r}
+## Inicia sessão python
+   venv_python = "temp.venv"
+   if(!virtualenv_exists(venv_python)){ virtualenv_create(venv_python, packages = c("pip","setuptools","wheel")) }
+
+   py_install("pandas", envname = venv_python)
+   py_install("calplot", envname = venv_python)
+   py_install("pyarrow", envname = venv_python)
+   use_virtualenv(venv_python)
+```
+
+```{python}
+def getStats(flight_chunk, chunk_list):
+  
+    # Seleção das cias.
+    major_airlines = ['AA', 'DL', 'UA', 'US']
+    
+    # Seleciona colunas relevantes no processamento
+    filtered_chunk = flight_chunk[['DAY', 'MONTH', 'YEAR', 'AIRLINE', 'ARRIVAL_DELAY']]
+    
+    # Filtra os dados nas cias.
+    filtered_chunk = filtered_chunk[filtered_chunk['AIRLINE'].isin(major_airlines)]
+    
+    # Remove linhas sem valores de atraso nos vôos
+    filtered_chunk = filtered_chunk.dropna(subset=['ARRIVAL_DELAY'])
+    
+    # Indentifica vôos com atraso significativos (> 10 minutos)
+    filtered_chunk['late'] = filtered_chunk['ARRIVAL_DELAY'] > 10
+    
+    # Anexa lote processado a lista de resultados
+    chunk_list.append(filtered_chunk)
+```
+
+```{python}
+def computeStats(flight_data):
+
+    # Cria coluna com valores de data a partir de colunas individuais com informações de tempo
+    flight_data['date'] = pd.to_datetime(
+        flight_data[['YEAR', 'MONTH', 'DAY']], 
+        format="%Y-%m-%d"
+    )
+    
+    # Seleciona apenas as colunas relevantes para agregação
+    processed_data = flight_data[['date', 'AIRLINE', 'ARRIVAL_DELAY', 'late']]
+    
+    # Agrupa por cia. e data para calcular estatísticas de atraso
+    daily_stats = processed_data.groupby(['AIRLINE', 'date']).agg(
+        delayed_count=('late', 'sum'),      # Count of delayed flights
+        total_flights=('AIRLINE', 'count')  # Total flights in group
+    ).reset_index()
+    
+    # Cálculo do atraso percentual
+    daily_stats['Perc'] = daily_stats['delayed_count'] / daily_stats['total_flights']
+    
+    # Retorna apenas colunas relevantes
+    return daily_stats[['AIRLINE', 'date', 'Perc']]
+```
+
+```{python}
+def computeMoreStats(stats):
+    import pandas as pd
+    
+    airlines = ['AA', 'DL', 'UA', 'US']
+    resultados = []
+    
+    for airline in airlines:
+        airline_data = stats[stats['AIRLINE'] == airline]
+        
+        atraso_medio = round(airline_data['Perc'].mean() * 100, 2)
+        atraso_maximo = round(airline_data['Perc'].max() * 100, 2)
+            
+        resultados.append({
+            'AIRLINE': airline,
+            'atraso_medio': atraso_medio,
+            'atraso_maximo': atraso_maximo,
+        })
+    
+    return pd.DataFrame(resultados)
+```
+
+```{python}
+# Bibliotecas
+import matplotlib.pyplot as plt
+import calplot
+import pandas as pd
+
+## Nome do arquivo com os dados
+arquivo_csv = 'flights.csv.zip'
+
+# Define o tamanho de cada lote a ser lido
+tamanho_chunck = 1e5
+
+# Lista para armazenar os subconjuntos processados
+subconjuntos_processados = []
+
+# Cria um objeto leitor que vai iterar sobre o CD
+leitor_csv = pd.read_csv(arquivo_csv, chunksize=tamanho_chunck)
+
+# Itera sobre cada chunk do CD
+for chunck in leitor_csv:
+    getStats(chunck,subconjuntos_processados)
+
+# Concatena todos os subconjuntos em um único DataFrame
+df_final = pd.concat(subconjuntos_processados, ignore_index=True)
+
+# Computa estatísticas
+stats = computeStats(df_final)
+```
+
+```{python include=FALSE}
+# Gera pdf para cada um dos calendários
+cAA = stats[stats['AIRLINE'] == 'AA']
+cAA = cAA.set_index('date')
+cal1 = calplot.calplot(data=cAA['Perc'],suptitle=f'AA',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_AA_atrasos.pdf')
+plt.close()
+
+cDL = stats[stats['AIRLINE'] == 'DL']
+cDL = cDL.set_index('date')
+cal2 = calplot.calplot(data=cDL['Perc'],suptitle=f'DL',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_DL_atrasos.pdf')
+plt.close()
+
+cUA = stats[stats['AIRLINE'] == 'UA']
+cUA = cUA.set_index('date')
+cal3 = calplot.calplot(data=cUA['Perc'],suptitle=f'UA',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_UA_atrasos.pdf')
+plt.close()
+
+cUS = stats[stats['AIRLINE'] == 'US']
+cUS = cUS.set_index('date')
+cal4 = calplot.calplot(data=cUS['Perc'],suptitle=f'US',cmap='YlGn',colorbar=True)
+plt.savefig('grafico_US_atrasos.pdf')
+plt.close()
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+## Imprime os calendários
+   knitr::include_graphics("grafico_AA_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+   knitr::include_graphics("grafico_DL_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+   knitr::include_graphics("grafico_UA_atrasos.pdf")
+```
+
+```{r, out.width="1.15\\linewidth", include=TRUE, fig.align="center", fig.cap=c("Mapa de calor dos vôos atrasados das Cias. aéreas AA, DL, UA e US, respectivamente. (Obtida através do Python)"), echo=FALSE}
+   knitr::include_graphics("grafico_US_atrasos.pdf")
+```
+
+```{r, eval=FALSE}
+## Encerra sessão Python (Chunk Desativada)
+   virtualenv_remove(venv_python)
+```
+
+>
+
+```{r}
+## Captura do tempo final
+   t1 = Sys.time()
+```
+
+\begin{center}
+   $\Delta t=$ `r delta3 = difftime(t1,t0,units = "secs"); delta3` $s$
+\end{center}
+
+>
+
+\hrule
+
+\hfill\pagebreak
+## § Resultados e Comparações (Julia--R)
 
 >
 
@@ -963,14 +749,14 @@ display(g4_julia)
 ::: {.col data-latex="{0.45\textwidth}"}
 
 \begin{center}
-   Tabela 6: Média de vôos atrasados por Cia estudada e dia (Obtida através do Julia)
+   Tabela 2: Média de vôos atrasados por Cia estudada e dia (Obtida através do Julia)
 \end{center}
 
 \centering
 ```{r, results='asis'}
 ## Tabela kable()
-   in7 = julia_eval("final_stats")
-   in7 %>% my_kbl_foot(header = 10)
+   stats_julia = julia_eval("final_stats")
+   stats_julia %>% my_kbl_foot(header = 10)
 ```
 :::
 
@@ -983,7 +769,7 @@ a column separator -->
 ::: {.col data-latex="{0.45\textwidth}"}
 
 \begin{center}
-   Tabela 3: Média de vôos atrasados por Cia estudada e dia.
+   Tabela 3: Média de vôos atrasados por Cia estudada e dia (Obtida através do R)
 \end{center}
 
 \centering
@@ -1000,7 +786,7 @@ a column separator -->
 ::: {.col data-latex="{0.45\textwidth}"}
 
 \begin{center}
-   Tabela 7: Média de vôos atrasados por Cia estudada (Obtida através do Julia)
+   Tabela 4: Média de vôos atrasados por Cia estudada (Obtida através do Julia)
 \end{center}
 
 \centering
@@ -1011,8 +797,8 @@ MoreStats = computeMoreStats(final_stats);
 
 ```{r, results='asis'}
 ## Tabela kable()
-   in8 = julia_eval("MoreStats")
-   in8 %>% my_kbl()
+   moreStats_julia = julia_eval("MoreStats")
+   moreStats_julia %>% my_kbl()
 ```
 :::
 
@@ -1023,22 +809,97 @@ a column separator -->
 :::
 
 ::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 5: Média de vôos atrasados por Cia estudada (Obtida através do R)
+\end{center}
+
+\centering
+```{r, results='asis'}
+## Tabela kable()
+   computeMoreStats(in4) %>% my_kbl()
+```
+:::
+::::::
+
+\hfill\pagebreak
+## § Resultados e Comparações (Julia--Python)
+
+>
+
+:::::: {.cols data-latex=""}
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 2: Média de vôos atrasados por Cia estudada e dia (Obtida através do Julia)
+\end{center}
+
+\centering
+```{r, results='asis'}
+## Tabela kable()
+   stats_julia %>% my_kbl_foot(header = 10)
+```
+:::
+
+::: {.col data-latex="{0.09\textwidth}"}
 \ 
 <!-- an empty Div (with a white space), serving as
 a column separator -->
 :::
-::::::
 
->
-
-```{r, include=FALSE}
-   t1 = Sys.time()
-```
+::: {.col data-latex="{0.45\textwidth}"}
 
 \begin{center}
-   $\Delta t=$ `r paste0(difftime(t1,t0,units = "secs"))` $s$
+   Tabela 6: Média de vôos atrasados por Cia estudada e dia (Obtida através do Python)
 \end{center}
 
->
+\centering
+```{r, results='asis'}
+## Atribui o conteúdo da variável stats no ambiente python para a variável in5 no R
+## Tabela kable()
+   stats_python = py$stats
+   stats_python %>% my_kbl_foot(header = 10)
+```
+:::
+::::::
 
-\hrule
+:::::: {.cols data-latex=""}
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 4: Média de vôos atrasados por Cia estudada (Obtida através do Julia)
+\end{center}
+
+\centering
+```{r, results='asis'}
+## Tabela kable()
+   moreStats_julia %>% my_kbl()
+```
+:::
+
+::: {.col data-latex="{0.09\textwidth}"}
+\ 
+<!-- an empty Div (with a white space), serving as
+a column separator -->
+:::
+
+::: {.col data-latex="{0.45\textwidth}"}
+
+\begin{center}
+   Tabela 7: Média de vôos atrasados por Cia estudada (Obtida através do Python)
+\end{center}
+
+\centering
+```{python}
+## Estatísticas extras
+MoreStats = computeMoreStats(stats)
+```
+
+```{r, results='asis'}
+## Tabela kable()
+   moreStats_python = py$MoreStats
+   moreStats_python %>% my_kbl()
+```
+:::
+::::::
+
