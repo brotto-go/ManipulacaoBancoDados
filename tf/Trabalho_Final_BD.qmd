@@ -2,7 +2,7 @@
 title: "Visualização de Dados <br> R, Python e Julia"
 author: "Bruce Trevisan, Heitor Brotto, <br> Guilherme Alves e Rafael Carneiro"
 format:
-  beamer:
+  revealjs:
     theme: simple
     slide-number: true
     code-copy: true
